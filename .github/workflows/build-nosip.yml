@@ -616,11 +616,15 @@ jobs:
           with open(sys.argv[1], "r", encoding="utf-8") as f:
               manifest = json.load(f)
           assert manifest["manifestVersion"] == 2
-          assert manifest["driver"]["dkmsPackages"]
-          assert manifest["driver"]["prebuiltPackages"]
-          assert manifest["kernels"]
-          assert len(manifest["driver"]["prebuiltPackages"]) >= 3
-          assert len(manifest["kernels"]) >= 3
+          dkms = manifest["driver"]["dkmsPackages"]
+          prebuilt = manifest["driver"]["prebuiltPackages"]
+          kernels = manifest["kernels"]
+          assert len(dkms) == 1
+          assert prebuilt
+          assert kernels
+          assert len(prebuilt) == len(kernels)
+          for kernel in kernels:
+              assert len(kernel.get("prebuiltPackages", [])) == 1
           PY
           (cd artifacts/guest-tools && shasum -a 512 -c SHA512SUMS)
 
@@ -705,11 +709,15 @@ jobs:
           assert manifest["distribution"]["format"] == "zip"
           assert manifest["distribution"]["installPath"] == "/Applications/vEGPU Machine.app"
           assert manifest["guestTools"]["driverVersion"]
-          assert manifest["guestTools"]["dkmsPackages"]
-          assert manifest["guestTools"]["prebuiltPackages"]
-          assert manifest["guestTools"]["kernels"]
-          assert len(manifest["guestTools"]["prebuiltPackages"]) >= 3
-          assert len(manifest["guestTools"]["kernels"]) >= 3
+          dkms = manifest["guestTools"]["dkmsPackages"]
+          prebuilt = manifest["guestTools"]["prebuiltPackages"]
+          kernels = manifest["guestTools"]["kernels"]
+          assert len(dkms) == 1
+          assert prebuilt
+          assert kernels
+          assert len(prebuilt) == len(kernels)
+          for kernel in kernels:
+              assert len(kernel.get("prebuiltPackages", [])) == 1
           PY
           test -f "$APP/Contents/Resources/share/qemu/edk2-aarch64-code.fd"
           test -f "$APP/Contents/Resources/share/qemu/edk2-arm-vars.fd"
