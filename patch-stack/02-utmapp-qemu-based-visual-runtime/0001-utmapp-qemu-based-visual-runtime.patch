@@ -368,13 +368,14 @@ index a382553fa8e322fd59cfa5ef2bbe2fd99e94a06f..6b1f99096f6ed97e0173a83be6aa02ed
          void *data;
      } u;
  } QXLCookie;
-@@ -130,6 +148,19 @@ struct SimpleSpiceDisplay {
+@@ -130,6 +148,20 @@ struct SimpleSpiceDisplay {
      bool guest_dmabuf_refresh;
      bool render_cursor;
  
 +#if defined(CONFIG_IOSURFACE)
 +    IOSurfaceRef iosurface;
 +    int surface_send_fd;
++    int surface_recv_fd;
 +    egl_fb iosurface_fb;
 +    GLuint tex_id;
 +    bool y_0_top;
@@ -1004,11 +1005,12 @@ index 87cc193cdee51cd4101f0f0eaa9ea1427492f410..1b23cd62275690c78c25f220ae33004b
  #include "qemu/osdep.h"
  #include "ui/qemu-spice.h"
  #include "qemu/error-report.h"
-@@ -23,6 +28,7 @@
+@@ -23,6 +28,8 @@
  #include "qemu/main-loop.h"
  #include "qemu/option.h"
  #include "qemu/queue.h"
 +#include "system/system.h"
++#include "qemu/sockets.h"
  #include "ui/console.h"
  #include "trace.h"
  
@@ -1047,7 +1049,7 @@ index 87cc193cdee51cd4101f0f0eaa9ea1427492f410..1b23cd62275690c78c25f220ae33004b
  int qemu_spice_rect_is_empty(const QXLRect* r)
  {
      return r->top == r->bottom || r->left == r->right;
-@@ -783,6 +812,203 @@ static const DisplayChangeListenerOps display_listener_ops = {
+@@ -783,6 +812,216 @@ static const DisplayChangeListenerOps display_listener_ops = {
  
  #ifdef HAVE_SPICE_GL
  
@@ -1179,6 +1181,10 @@ index 87cc193cdee51cd4101f0f0eaa9ea1427492f410..1b23cd62275690c78c25f220ae33004b
 +        close(ssd->surface_send_fd);
 +        ssd->surface_send_fd = -1;
 +    }
++    if (ssd->surface_recv_fd > -1) {
++        close(ssd->surface_recv_fd);
++        ssd->surface_recv_fd = -1;
++    }
 +    CFRelease(ssd->iosurface);
 +    ssd->iosurface = NULL;
 +}
@@ -1206,20 +1212,29 @@ index 87cc193cdee51cd4101f0f0eaa9ea1427492f410..1b23cd62275690c78c25f220ae33004b
 +    if (!ssd->iosurface) {
 +        return -1;
 +    }
-+    if (pipe(fds) < 0) {
-+        error_report("spice_iosurface_create_fd: failed to create pipe");
++    if (qemu_socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0) {
++        error_report("spice_iosurface_create_fd: failed to create socketpair");
 +        return -1;
 +    }
 +    if (ssd->surface_send_fd > -1) {
 +        close(ssd->surface_send_fd);
 +    }
++    if (ssd->surface_recv_fd > -1) {
++        close(ssd->surface_recv_fd);
++    }
 +
++    ssd->surface_recv_fd = fds[0];
 +    ssd->surface_send_fd = fds[1];
 +    *fourcc = 'BGRA';
 +    surfaceid = IOSurfaceGetID(ssd->iosurface);
 +    if (write(ssd->surface_send_fd, &surfaceid, sizeof(surfaceid)) !=
++        sizeof(surfaceid) ||
++        write(ssd->surface_recv_fd, &surfaceid, sizeof(surfaceid)) !=
 +        sizeof(surfaceid)) {
 +        close(fds[0]);
++        close(fds[1]);
++        ssd->surface_recv_fd = -1;
++        ssd->surface_send_fd = -1;
 +        return -1;
 +    }
 +    return fds[0];
@@ -1582,13 +1597,14 @@ index 87cc193cdee51cd4101f0f0eaa9ea1427492f410..1b23cd62275690c78c25f220ae33004b
          ssd->dcl.ops = &display_listener_gl_ops;
          ssd->dgc.ops = &gl_ctx_ops;
          ssd->gl_unblock_bh = qemu_bh_new(qemu_spice_gl_unblock_bh, ssd);
-@@ -1401,6 +1796,16 @@ static void qemu_spice_display_init_one(QemuConsole *con)
+@@ -1401,6 +1796,17 @@ static void qemu_spice_display_init_one(QemuConsole *con)
          ssd->gls = qemu_gl_init_shader();
          ssd->have_surface = false;
          ssd->have_scanout = false;
 +#if defined(CONFIG_IOSURFACE)
 +        ssd->iosurface = NULL;
 +        ssd->surface_send_fd = -1;
++        ssd->surface_recv_fd = -1;
 +        ssd->tex_id = 0;
 +        ssd->backing_id = 0;
 +        ssd->backing_borrow = NULL;
