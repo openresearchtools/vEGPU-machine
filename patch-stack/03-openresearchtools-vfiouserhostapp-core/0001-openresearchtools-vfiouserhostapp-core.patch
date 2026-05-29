@@ -2437,10 +2437,10 @@ index db36566b5662d03f8122ac10df3ec3ae0e0da831..a5d565f2a0869370131934f49e0b79cf
  
  func querySystemExtensionState(identifier: String) -> ExtensionState {
 diff --git a/contrib/apple-vfio/qemu-vfio-apple/VMLauncher.swift b/contrib/apple-vfio/qemu-vfio-apple/VMLauncher.swift
-index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f874207ac6172 100644
+index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..47a25673c5d894d2d46c829991e1ea122a7ae5b0 100644
 --- a/contrib/apple-vfio/qemu-vfio-apple/VMLauncher.swift
 +++ b/contrib/apple-vfio/qemu-vfio-apple/VMLauncher.swift
-@@ -1,58 +1,56 @@
+@@ -1,58 +1,58 @@
 -// VMLauncher.swift — orchestrate `qemu-system-aarch64` against a cached
 -// base image and a writable overlay.
 +// Modified by OpenResearchTools, 2026-05-26.
@@ -2487,6 +2487,7 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
      case qemuImgFailed(Int32, String)
      case qemuLaunchFailed(String)
 -    case extraDisk(String)
++    case angleFrameworks(String)
  
      var errorDescription: String? {
          switch self {
@@ -2499,6 +2500,7 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
          case .qemuImgFailed(let c, let s): return "qemu-img exited \(c): \(s)"
          case .qemuLaunchFailed(let s):     return "could not start qemu-system-aarch64: \(s)"
 -        case .extraDisk(let s):            return s
++        case .angleFrameworks(let s):       return s
          }
      }
  }
@@ -2515,7 +2517,7 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
  }
  
  // MARK: - Bundle discovery
-@@ -68,12 +66,8 @@ struct LauncherBundle {
+@@ -68,12 +68,8 @@ struct LauncherBundle {
  /// Locate the bundled qemu binaries + firmware.
  ///
  /// We expect this binary (qemu-vfio-apple) to live inside
@@ -2530,7 +2532,7 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
  func discoverLauncherBundle() throws -> LauncherBundle {
      let exe = executableURL()
      let macosDir = exe.deletingLastPathComponent()
-@@ -85,26 +79,6 @@ func discoverLauncherBundle() throws -> LauncherBundle {
+@@ -85,26 +81,6 @@ func discoverLauncherBundle() throws -> LauncherBundle {
          return b
      }
  
@@ -2557,7 +2559,7 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
      // Nothing worked. Produce a message that tells the user *which*
      // piece is missing instead of blaming the whole bundle — the
      // single most common failure mode is a make-dist.sh that only
-@@ -167,8 +141,7 @@ private func tryAssembleBundle(qemuBinary qemu: URL,
+@@ -167,8 +143,7 @@ private func tryAssembleBundle(qemuBinary qemu: URL,
  /// works when Foundation has had a chance to populate it, but for a
  /// raw CLI we look at argv[0] + pwd. We prefer argv[0] when it includes
  /// a slash and exists; otherwise fall through to `/proc/self/exe`-style
@@ -2567,7 +2569,7 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
  private func executableURL() -> URL {
      if let url = Bundle.main.executableURL,
         FileManager.default.isExecutableFile(atPath: url.path) {
-@@ -181,60 +154,11 @@ private func executableURL() -> URL {
+@@ -181,60 +156,11 @@ private func executableURL() -> URL {
      return URL(fileURLWithPath: argv0)
  }
  
@@ -2629,7 +2631,7 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
  
  /// Parsed `format` field from `qemu-img info`. Returns nil if qemu-img
  /// can't open the file (bad path, unsupported format, permissions).
-@@ -295,53 +219,30 @@ private func runQemuImg(_ qemuImg: URL, args: [String]) throws {
+@@ -295,53 +221,33 @@ private func runQemuImg(_ qemuImg: URL, args: [String]) throws {
  
  // MARK: - Launch
  
@@ -2697,10 +2699,13 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
 +
 +    if !opts.headless {
 +        setenv("ANGLE_DEFAULT_PLATFORM", "metal", 1)
++        if let angleFrameworkDir = opts.angleFrameworkDir {
++            try configureAngleFrameworkDirectory(angleFrameworkDir)
++        }
      }
  
      if opts.dryRun {
-@@ -356,24 +257,19 @@ func launchVM(base: URL, opts: Options) throws {
+@@ -356,24 +262,19 @@ func launchVM(base: URL, opts: Options) throws {
          return
      }
  
@@ -2729,7 +2734,7 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
  private func execReplacingSelf(_ binary: URL, argv: [String]) throws {
      // execv wants [argv0, …rest, NULL]. By convention argv0 is the
      // program name but the kernel doesn't care — we use the full path
-@@ -391,78 +287,19 @@ private func execReplacingSelf(_ binary: URL, argv: [String]) throws {
+@@ -391,78 +292,66 @@ private func execReplacingSelf(_ binary: URL, argv: [String]) throws {
      throw LaunchError.qemuLaunchFailed("execv \(binary.path): \(err)")
  }
  
@@ -2742,24 +2747,56 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
 -                               qemuImg: URL) throws -> [ResolvedDisk]
 -{
 -    if disks.isEmpty { return [] }
--    let fm = FileManager.default
++private func configureAngleFrameworkDirectory(_ path: String) throws {
++    let url = URL(fileURLWithPath: path).standardizedFileURL
+     let fm = FileManager.default
 -    var out: [ResolvedDisk] = []
 -    for d in disks {
 -        let expanded = (d.path as NSString).expandingTildeInPath
 -        let url = URL(fileURLWithPath: expanded).standardizedFileURL
 -        guard fm.fileExists(atPath: url.path) else {
 -            throw LaunchError.extraDisk("--disk: file not found: \(url.path)")
--        }
++    var isDirectory: ObjCBool = false
++    guard fm.fileExists(atPath: url.path, isDirectory: &isDirectory),
++          isDirectory.boolValue
++    else {
++        throw LaunchError.angleFrameworks("ANGLE framework directory not found: \(url.path)")
++    }
++
++    for framework in ["EGL", "GLESv2"] {
++        let frameworkURL = url.appendingPathComponent("\(framework).framework", isDirectory: true)
++        var frameworkIsDirectory: ObjCBool = false
++        guard fm.fileExists(atPath: frameworkURL.path, isDirectory: &frameworkIsDirectory),
++              frameworkIsDirectory.boolValue
++        else {
++            throw LaunchError.angleFrameworks("missing \(framework).framework in \(url.path)")
+         }
 -        guard let fmt = queryDiskFormat(url, qemuImg: qemuImg) else {
 -            throw LaunchError.extraDisk(
 -                "--disk: qemu-img could not probe \(url.path) " +
 -                "(unreadable, unsupported format, or corrupt)")
--        }
++
++        let binaryCandidates = [
++            frameworkURL.appendingPathComponent(framework),
++            frameworkURL.appendingPathComponent("Versions/Current/\(framework)"),
++            frameworkURL.appendingPathComponent("Versions/A/\(framework)"),
++        ]
++        guard binaryCandidates.contains(where: { fm.fileExists(atPath: $0.path) }) else {
++            throw LaunchError.angleFrameworks("missing \(framework).framework binary in \(frameworkURL.path)")
+         }
 -        out.append(ResolvedDisk(path: url.path, format: fmt, readOnly: d.readOnly))
--    }
+     }
 -    return out
--}
--
++
++    prependEnvironmentPath("DYLD_FRAMEWORK_PATH", url.path)
++    prependEnvironmentPath("DYLD_FALLBACK_FRAMEWORK_PATH", url.path)
++    if chdir(url.path) != 0 {
++        let err = String(cString: strerror(errno))
++        throw LaunchError.angleFrameworks("could not enter ANGLE framework directory \(url.path): \(err)")
++    }
++    log("angle frameworks: \(url.path)")
+ }
+ 
 -// MARK: - Passthrough resolution
 -
 -private func resolvePassthrough(_ opts: Options) -> [PassthroughCandidate] {
@@ -2787,10 +2824,16 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
 -            return findSingleFunction(bus: bus, device: device, function: fn, fallbackBDF: bdf)
 -        }
 -        return findSlotSiblings(bus: bus, device: device, fallbackBDF: bdf)
--    }
++private func prependEnvironmentPath(_ name: String, _ value: String) {
++    let current = ProcessInfo.processInfo.environment[name] ?? ""
++    if current.isEmpty {
++        setenv(name, value, 1)
++    } else {
++        setenv(name, "\(value):\(current)", 1)
+     }
 -    return autoDetectPassthroughSlot()
--}
--
+ }
+ 
  // MARK: - Qemu argv construction
  
  private func buildQemuArgv(opts: Options,
@@ -2813,7 +2856,7 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
  
      // Machine + accelerator. The dext-based vfio-apple-pci path
      // handles guest DMA in-kernel via the apple-dma companion, so
-@@ -470,8 +307,7 @@ private func buildQemuArgv(opts: Options,
+@@ -470,8 +359,7 @@ private func buildQemuArgv(opts: Options,
      // gymnastics that the old user-mode PCI device required.
      /*
       * tso=on enables Apple's total-store-ordering memory model on every
@@ -2823,7 +2866,7 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
       * runs avoids the late-boot paging faults we used to see when the
       * in-guest module flipped ACTLR_EL1.EnTSO mid-flight.
       */
-@@ -488,34 +324,21 @@ private func buildQemuArgv(opts: Options,
+@@ -488,34 +376,21 @@ private func buildQemuArgv(opts: Options,
      a += ["-drive", "if=pflash,format=raw,readonly=on,file=\(bundle.efiCodeFile.path)"]
      a += ["-drive", "if=pflash,format=raw,file=\(varsFile.path)"]
  
@@ -2869,7 +2912,8 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
  
      // RNG — GNOME login really doesn't like a starved entropy pool.
      a += ["-device", "virtio-rng-pci"]
-@@ -525,73 +348,51 @@ private func buildQemuArgv(opts: Options,
+@@ -524,74 +399,52 @@ private func buildQemuArgv(opts: Options,
+     a += ["-device", "qemu-xhci,id=xhci"]
      a += ["-device", "usb-kbd,bus=xhci.0"]
      a += ["-device", "usb-tablet,bus=xhci.0"]
 +    a += ["-device", "usb-mouse,id=vegpu-relative-mouse,bus=xhci.0"]
@@ -2977,7 +3021,7 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..4180183c527d67437b927417290f8742
  }
 -
 diff --git a/contrib/apple-vfio/qemu-vfio-apple/main.swift b/contrib/apple-vfio/qemu-vfio-apple/main.swift
-index d65b071f7f584eb2b58b3c89f6c8f7311dcc21d5..d440461fe2e87f1e7aaf174e74699203eec79a9d 100644
+index d65b071f7f584eb2b58b3c89f6c8f7311dcc21d5..a8098274af20f7a9a45ee2164d0a5a333925925e 100644
 --- a/contrib/apple-vfio/qemu-vfio-apple/main.swift
 +++ b/contrib/apple-vfio/qemu-vfio-apple/main.swift
 @@ -1,36 +1,38 @@
@@ -3036,7 +3080,7 @@ index d65b071f7f584eb2b58b3c89f6c8f7311dcc21d5..d440461fe2e87f1e7aaf174e74699203
  //   list-devices    list PCI endpoints with current driver bindings
  //   help            show usage
  //   version         print version
-@@ -38,66 +40,39 @@
+@@ -38,66 +40,40 @@
  // Flags (see `printUsage` for the full table).
  
  import Foundation
@@ -3098,6 +3142,7 @@ index d65b071f7f584eb2b58b3c89f6c8f7311dcc21d5..d440461fe2e87f1e7aaf174e74699203
 +    var serialLogPath:  String?  = nil
 +    var qemuLogPath:    String?  = nil
 +    var spiceSocketPath: String? = nil
++    var angleFrameworkDir: String? = nil
 +    var vmnetNetdev:    String   = "vmnet-shared"
 +    var vmnetStartAddress: String = "172.29.253.1"
 +    var vmnetEndAddress: String = "172.29.253.99"
@@ -3118,7 +3163,7 @@ index d65b071f7f584eb2b58b3c89f6c8f7311dcc21d5..d440461fe2e87f1e7aaf174e74699203
  /// Minimal argv splitter. Accepts both `--flag value` and `--flag=value`.
  /// Short forms are not supported — subcommands are rare and the launcher
  /// is scripted more often than typed.
-@@ -108,14 +83,11 @@ func parseOptions(_ argv: [String]) -> Options {
+@@ -108,14 +84,11 @@ func parseOptions(_ argv: [String]) -> Options {
          let arg = argv[i]
          i += 1
  
@@ -3137,7 +3182,7 @@ index d65b071f7f584eb2b58b3c89f6c8f7311dcc21d5..d440461fe2e87f1e7aaf174e74699203
          }
  
          func value(for flag: String) -> String {
-@@ -138,64 +110,47 @@ func parseOptions(_ argv: [String]) -> Options {
+@@ -138,64 +111,48 @@ func parseOptions(_ argv: [String]) -> Options {
          }
  
          switch key {
@@ -3159,6 +3204,7 @@ index d65b071f7f584eb2b58b3c89f6c8f7311dcc21d5..d440461fe2e87f1e7aaf174e74699203
 +        case "--serial-log":     opts.serialLogPath = value(for: key)
 +        case "--qemu-log":       opts.qemuLogPath = value(for: key)
 +        case "--spice-socket":    opts.spiceSocketPath = value(for: key)
++        case "--angle-framework-dir": opts.angleFrameworkDir = value(for: key)
 +        case "--vmnet-netdev":
              let v = value(for: key)
 -            guard let n = Int(v), n > 0, n < 65536 else { die("--ssh-port out of range (got \(v))") }
@@ -3224,7 +3270,7 @@ index d65b071f7f584eb2b58b3c89f6c8f7311dcc21d5..d440461fe2e87f1e7aaf174e74699203
  func deriveVMName(fromLocalPath path: String) -> String {
      let last = (path as NSString).lastPathComponent
      let stem = (last as NSString).deletingPathExtension
-@@ -203,23 +158,6 @@ func deriveVMName(fromLocalPath path: String) -> String {
+@@ -203,23 +160,6 @@ func deriveVMName(fromLocalPath path: String) -> String {
      return "local-\(base)"
  }
  
@@ -3248,7 +3294,7 @@ index d65b071f7f584eb2b58b3c89f6c8f7311dcc21d5..d440461fe2e87f1e7aaf174e74699203
  // MARK: - Entry point
  
  let argv = CommandLine.arguments
-@@ -227,13 +165,11 @@ let cmd  = argv.count >= 2 ? argv[1] : "run"
+@@ -227,13 +167,11 @@ let cmd  = argv.count >= 2 ? argv[1] : "run"
  let rest = argv.count >= 3 ? Array(argv.dropFirst(2)) : []
  
  switch cmd {
@@ -3267,7 +3313,7 @@ index d65b071f7f584eb2b58b3c89f6c8f7311dcc21d5..d440461fe2e87f1e7aaf174e74699203
  case "help", "--help", "-h":
      printUsage()
      exit(0)
-@@ -259,87 +195,110 @@ func printUsage() {
+@@ -259,87 +197,113 @@ func printUsage() {
          usage: qemu-vfio-apple <command> [flags]
  
          commands:
@@ -3360,6 +3406,9 @@ index d65b071f7f584eb2b58b3c89f6c8f7311dcc21d5..d440461fe2e87f1e7aaf174e74699203
 +          --qemu-log PATH         write QEMU debug log with -D PATH
 +          --spice-socket PATH     local SPICE unix socket for accelerated GUI.
 +                                  Non-headless defaults to per-VM state.
++          --angle-framework-dir PATH
++                                  app-provided Contents/Frameworks directory
++                                  containing EGL.framework and GLESv2.framework
            --dry-run               print the qemu command line and exit
  
 -        extra qemu arguments:
@@ -3442,7 +3491,7 @@ index d65b071f7f584eb2b58b3c89f6c8f7311dcc21d5..d440461fe2e87f1e7aaf174e74699203
  // MARK: - Shared error helpers
  
  func die(_ msg: String) -> Never {
-@@ -359,255 +318,179 @@ func log(_ msg: String) {
+@@ -359,255 +323,179 @@ func log(_ msg: String) {
  // MARK: - Command implementations
  
  func cmdRun(_ opts: Options) -> Int32 {
