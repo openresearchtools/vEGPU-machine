@@ -2030,21 +2030,42 @@ index 0000000000000000000000000000000000000000..a615fed65bf9c303e2dbf827003f747d
 +   foreach dep : ['ws2_32', 'shlwapi']
 diff --git a/contrib/apple-vfio/patches/virglrenderer-utm-macos-no-egl-cleanup.patch b/contrib/apple-vfio/patches/virglrenderer-utm-macos-no-egl-cleanup.patch
 new file mode 100644
-index 0000000000000000000000000000000000000000..bb830414155861a4dc6e9ed0710740bc5457abcf
+index 0000000000000000000000000000000000000000..e8fe40cee3018f6469205dd5c14de697f2b09e53
 --- /dev/null
 +++ b/contrib/apple-vfio/patches/virglrenderer-utm-macos-no-egl-cleanup.patch
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,60 @@
 +Source: local compatibility patch carried for utmapp/virglrenderer
 +Target repository: https://github.com/utmapp/virglrenderer.git
 +Target commit used by build-display-deps.sh: d48a2d0d9a722fffd3f92c83e71d9426a4892a66
 +Purpose: keep the macOS Metal build from using EGL image cleanup when the
-+         selected virglrenderer configuration has no EGL headers, and keep
-+         the OpenGL/virgl runtime from initializing the Venus proxy renderer
++         selected virglrenderer configuration has no EGL headers, define the
++         tiny ANGLE Metal EGL constants needed by UTM virglrenderer when the
++         build intentionally does not import ANGLE headers, and keep the
++         OpenGL/virgl runtime from initializing the Venus proxy renderer
 +         unless QEMU explicitly requested Venus.
 +License: same license terms as the patched virglrenderer source file.
 +
 +OpenResearchTools modification notice date: 2026-05-26.
 +OpenResearchTools carries this compatibility patch in the utmapp/qemu-based visual runtime layer.
++
++diff --git a/src/vrend/vrend_winsys_egl.c b/src/vrend/vrend_winsys_egl.c
++index 5a158db..ccde185 100644
++--- a/src/vrend/vrend_winsys_egl.c
+++++ b/src/vrend/vrend_winsys_egl.c
++@@ -70,6 +70,13 @@
++ #define EGL_EXT_DEVICE_QUERY                   BIT(11)
++ #define EGL_EXT_PLATFORM_DEVICE                BIT(12)
++ 
+++#ifndef EGL_METAL_TEXTURE_ANGLE
+++#define EGL_METAL_TEXTURE_ANGLE 0x34A7
+++#endif
+++#ifndef EGL_METAL_DEVICE_ANGLE
+++#define EGL_METAL_DEVICE_ANGLE 0x34A6
+++#endif
+++
++ static const struct {
++    uint32_t bit;
++    const char *string;
 +
 +diff --git a/src/vrend/vrend_renderer.c b/src/vrend/vrend_renderer.c
 +index b8934dc..b7a8467 100644
