@@ -324,9 +324,14 @@ jobs:
           DISPLAY_DEPS="$HOME/.cache/vegpu/qemu-display-deps"
           DISPLAY_SRC="$RUNNER_TEMP/qemu-display-src"
           DEPS_PC="$DISPLAY_DEPS/lib/pkgconfig:$DISPLAY_DEPS/share/pkgconfig:${PKG_CONFIG_PATH:-}"
-          if PKG_CONFIG_PATH="$DEPS_PC" pkg-config --modversion openssl | grep -Fx '4.3.2' && \
+          if PKG_CONFIG_PATH="$DEPS_PC" pkg-config --modversion epoxy | grep -Fx '1.5.10' && \
+             PKG_CONFIG_PATH="$DEPS_PC" pkg-config --variable=epoxy_has_egl epoxy | grep -Fx '1' && \
+             PKG_CONFIG_PATH="$DEPS_PC" pkg-config --modversion openssl | grep -Fx '4.3.2' && \
              PKG_CONFIG_PATH="$DEPS_PC" pkg-config --modversion spice-protocol | grep -Fx '0.14.5' && \
              PKG_CONFIG_PATH="$DEPS_PC" pkg-config --modversion spice-server | grep -Fx '0.16.0' && \
+             test -f "$DISPLAY_DEPS/include/epoxy/egl.h" && \
+             test -f "$DISPLAY_DEPS/include/EGL/eglplatform.h" && \
+             test -f "$DISPLAY_DEPS/lib/libepoxy.0.dylib" && \
              test -f "$DISPLAY_DEPS/lib/libspice-server.1.dylib" && \
              test -f "$DISPLAY_DEPS/lib/libssl.60.dylib" && \
              test -f "$DISPLAY_DEPS/lib/libcrypto.57.dylib" && \

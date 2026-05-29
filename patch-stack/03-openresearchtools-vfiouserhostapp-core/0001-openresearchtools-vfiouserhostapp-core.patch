@@ -3884,10 +3884,10 @@ index d65b071f7f584eb2b58b3c89f6c8f7311dcc21d5..a8098274af20f7a9a45ee2164d0a5a33
  // MARK: - Formatting
 diff --git a/contrib/apple-vfio/scripts/build-display-deps.sh b/contrib/apple-vfio/scripts/build-display-deps.sh
 new file mode 100755
-index 0000000000000000000000000000000000000000..efa44d14b6bb28df9ca8ca0696f272792c1932d5
+index 0000000000000000000000000000000000000000..b4a48b2706018a9fee8b7cc13178b4735b8e8882
 --- /dev/null
 +++ b/contrib/apple-vfio/scripts/build-display-deps.sh
-@@ -0,0 +1,198 @@
+@@ -0,0 +1,314 @@
 +#!/bin/bash
 +#
 +# SPDX-License-Identifier: GPL-2.0-or-later
@@ -3911,6 +3911,9 @@ index 0000000000000000000000000000000000000000..efa44d14b6bb28df9ca8ca0696f27279
 +LIBRESSL_VERSION="${LIBRESSL_VERSION:-4.3.2}"
 +LIBRESSL_URL="${LIBRESSL_URL:-https://cdn.openbsd.org/pub/OpenBSD/LibreSSL/libressl-${LIBRESSL_VERSION}.tar.gz}"
 +LIBRESSL_SHA256="${LIBRESSL_SHA256:-edf01aee24c65d69e6a9efcb9d44bcda682ff9d4f3bbbd95e794e1dfa90847b5}"
++LIBEPOXY_VERSION="${LIBEPOXY_VERSION:-1.5.10}"
++LIBEPOXY_URL="${LIBEPOXY_URL:-https://github.com/anholt/libepoxy/archive/refs/tags/${LIBEPOXY_VERSION}.tar.gz}"
++LIBEPOXY_SHA256="${LIBEPOXY_SHA256:-a7ced37f4102b745ac86d6a70a9da399cc139ff168ba6b8002b4d8d43c900c15}"
 +SPICE_PROTOCOL_VERSION="${SPICE_PROTOCOL_VERSION:-0.14.5}"
 +SPICE_PROTOCOL_URL="${SPICE_PROTOCOL_URL:-https://www.spice-space.org/download/releases/spice-protocol-${SPICE_PROTOCOL_VERSION}.tar.xz}"
 +SPICE_PROTOCOL_SHA256="${SPICE_PROTOCOL_SHA256:-baf58449f6e89d19f475899ad5fb9196fdc46c03cc53233f4e39cf2978f9cff7}"
@@ -3965,6 +3968,92 @@ index 0000000000000000000000000000000000000000..efa44d14b6bb28df9ca8ca0696f27279
 +    tar -xf "$archive" -C "$dest" --strip-components=1
 +}
 +
++write_minimal_egl_platform_headers() {
++    mkdir -p "$PREFIX/include/EGL" "$PREFIX/include/KHR"
++    cat > "$PREFIX/include/KHR/khrplatform.h" <<'EOF'
++#ifndef VEGPU_MINIMAL_KHRPLATFORM_H
++#define VEGPU_MINIMAL_KHRPLATFORM_H
++/*
++ * Modified by OpenResearchTools, 2026-05-29.
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ *
++ * Minimal build-only Khronos platform typedefs for libepoxy's EGL dispatch
++ * generator. This intentionally avoids importing Khronos/ANGLE EGL headers
++ * into the GPL QEMU/Machine source or artifacts.
++ */
++#include <stdint.h>
++#include <stddef.h>
++#ifndef KHRONOS_APICALL
++#define KHRONOS_APICALL extern
++#endif
++#ifndef KHRONOS_APIENTRY
++#define KHRONOS_APIENTRY
++#endif
++#ifndef KHRONOS_APIATTRIBUTES
++#define KHRONOS_APIATTRIBUTES
++#endif
++#endif
++EOF
++    cat > "$PREFIX/include/EGL/eglplatform.h" <<'EOF'
++#ifndef VEGPU_MINIMAL_EGLPLATFORM_H
++#define VEGPU_MINIMAL_EGLPLATFORM_H
++/*
++ * Modified by OpenResearchTools, 2026-05-29.
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ *
++ * Minimal build-only EGL platform declarations for macOS ANGLE loading.
++ */
++#include <KHR/khrplatform.h>
++#include <stdint.h>
++typedef int32_t EGLint;
++typedef void *EGLNativeDisplayType;
++typedef void *EGLNativePixmapType;
++typedef void *EGLNativeWindowType;
++#ifndef EGLAPI
++#define EGLAPI KHRONOS_APICALL
++#endif
++#ifndef EGLAPIENTRY
++#define EGLAPIENTRY KHRONOS_APIENTRY
++#endif
++#define EGLAPIENTRYP EGLAPIENTRY *
++#endif
++EOF
++}
++
++patch_libepoxy_for_macos_angle() {
++    "$PY_VENV/bin/python3" - "$WORK/libepoxy/src/dispatch_common.h" \
++        "$WORK/libepoxy/src/dispatch_common.c" <<'PY'
++import pathlib
++import sys
++
++header = pathlib.Path(sys.argv[1])
++source = pathlib.Path(sys.argv[2])
++
++text = header.read_text()
++old = "#elif defined(__APPLE__)\n#define PLATFORM_HAS_EGL 0 \n"
++new = "#elif defined(__APPLE__)\n#define PLATFORM_HAS_EGL ENABLE_EGL\n"
++if old not in text:
++    raise SystemExit("could not find libepoxy macOS EGL platform guard")
++header.write_text(text.replace(old, new))
++
++text = source.read_text()
++old = (
++    '#define OPENGL_LIB "/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL"\n'
++    '#define GLES1_LIB "libGLESv1_CM.so"\n'
++    '#define GLES2_LIB "libGLESv2.so"\n'
++)
++new = (
++    '#define OPENGL_LIB "/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL"\n'
++    '#define EGL_LIB "EGL.framework/EGL"\n'
++    '#define GLES1_LIB "GLESv2.framework/GLESv2"\n'
++    '#define GLES2_LIB "GLESv2.framework/GLESv2"\n'
++)
++if old not in text:
++    raise SystemExit("could not find libepoxy macOS framework library names")
++source.write_text(text.replace(old, new))
++PY
++}
++
 +clone_or_update() {
 +    local repo="$1"
 +    local dir="$2"
@@ -3980,11 +4069,38 @@ index 0000000000000000000000000000000000000000..efa44d14b6bb28df9ca8ca0696f27279
 +}
 +
 +echo "[build-display-deps] prefix: $PREFIX"
++echo "[build-display-deps] libepoxy: $LIBEPOXY_URL"
 +echo "[build-display-deps] libressl: $LIBRESSL_URL"
 +echo "[build-display-deps] spice-protocol: $SPICE_PROTOCOL_URL"
 +echo "[build-display-deps] spice-server: $SPICE_SERVER_URL"
 +echo "[build-display-deps] virglrenderer: $VIRGL_REPO @ $VIRGL_COMMIT"
 +echo "[build-display-deps] venus: $VIRGL_VENUS"
++
++download_checked "$LIBEPOXY_URL" "$WORK/libepoxy-${LIBEPOXY_VERSION}.tar.gz" "$LIBEPOXY_SHA256"
++extract_clean "$WORK/libepoxy-${LIBEPOXY_VERSION}.tar.gz" "$WORK/libepoxy"
++write_minimal_egl_platform_headers
++patch_libepoxy_for_macos_angle
++rm -rf "$WORK/libepoxy-build"
++PATH="$PY_VENV/bin:$PATH" \
++CPPFLAGS="-I$PREFIX/include ${CPPFLAGS:-}" \
++CFLAGS="-I$PREFIX/include ${CFLAGS:-}" \
++PYTHON="$PY_VENV/bin/python3" \
++meson setup "$WORK/libepoxy-build" "$WORK/libepoxy" \
++    --prefix "$PREFIX" \
++    --libdir lib \
++    --buildtype release \
++    -Degl=yes \
++    -Dglx=no \
++    -Dtests=false \
++    -Dx11=false
++ninja -C "$WORK/libepoxy-build" install
++PKG_CONFIG_PATH="$DEPS_PKG_CONFIG_PATH" \
++pkg-config --modversion epoxy | grep -Fx "$LIBEPOXY_VERSION"
++PKG_CONFIG_PATH="$DEPS_PKG_CONFIG_PATH" \
++pkg-config --variable=epoxy_has_egl epoxy | grep -Fx 1
++test -f "$PREFIX/include/epoxy/egl.h"
++test -f "$PREFIX/include/EGL/eglplatform.h"
++test -f "$PREFIX/lib/libepoxy.0.dylib"
 +
 +download_checked "$LIBRESSL_URL" "$WORK/libressl-${LIBRESSL_VERSION}.tar.gz" "$LIBRESSL_SHA256"
 +extract_clean "$WORK/libressl-${LIBRESSL_VERSION}.tar.gz" "$WORK/libressl"
@@ -4623,7 +4739,7 @@ index 4cb4b1cb992893cd082f335fb2082218cee0eca7..275c809cbc9521a7e1c575a6a61183ee
  for dylib in "$DIST_DIR"/lib/*.dylib; do
      bname="$(basename "$dylib")"
 diff --git a/contrib/apple-vfio/scripts/make-notice-bundle.sh b/contrib/apple-vfio/scripts/make-notice-bundle.sh
-index 1a6325d057c9156448b6f539f125a065d70f0bcb..686999c1ed3020ca8c452688400de05f6ba3d3d8 100755
+index 1a6325d057c9156448b6f539f125a065d70f0bcb..5fdc3519a1ec276a033fa964937148d140d8cde6 100755
 --- a/contrib/apple-vfio/scripts/make-notice-bundle.sh
 +++ b/contrib/apple-vfio/scripts/make-notice-bundle.sh
 @@ -1,21 +1,32 @@
@@ -4997,14 +5113,23 @@ index 1a6325d057c9156448b6f539f125a065d70f0bcb..686999c1ed3020ca8c452688400de05f
      {
          "key": "gmp",
          "formula": "gmp",
-@@ -195,6 +450,34 @@ deps = [
+@@ -195,6 +450,43 @@ deps = [
          "formula": "pixman",
          "files": ["COPYING"],
      },
 +    {
 +        "key": "libepoxy",
-+        "formula": "libepoxy",
++        "source_url": "https://github.com/anholt/libepoxy/archive/refs/tags/1.5.10.tar.gz",
++        "homepage": "https://github.com/anholt/libepoxy",
++        "license": "MIT",
 +        "files": ["COPYING"],
++        "recipe_note": (
++            "Built from pinned upstream source by contrib/apple-vfio/scripts/"
++            "build-display-deps.sh. The build applies a local macOS EGL "
++            "dispatch patch so libepoxy can dlopen app-provided EGL.framework "
++            "and GLESv2.framework at runtime; no ANGLE/WebKit source or "
++            "frameworks are bundled in Machine."
++        ),
 +    },
 +    {
 +        "key": "spice-protocol",
@@ -5032,7 +5157,7 @@ index 1a6325d057c9156448b6f539f125a065d70f0bcb..686999c1ed3020ca8c452688400de05f
      {
          "key": "libpng",
          "formula": "libpng",
-@@ -234,6 +517,13 @@ deps = [
+@@ -234,6 +526,13 @@ deps = [
              "LICENSE",
          ],
      },
@@ -5046,7 +5171,7 @@ index 1a6325d057c9156448b6f539f125a065d70f0bcb..686999c1ed3020ca8c452688400de05f
  ]
  
  
-@@ -242,38 +532,136 @@ def report(message: str) -> None:
+@@ -242,38 +541,136 @@ def report(message: str) -> None:
  
  
  def fetch_bytes(url: str, label: str) -> bytes:
@@ -5209,7 +5334,7 @@ index 1a6325d057c9156448b6f539f125a065d70f0bcb..686999c1ed3020ca8c452688400de05f
  def member_relpath(name: str) -> str:
      parts = name.split("/", 1)
      return parts[1] if len(parts) == 2 else parts[0]
-@@ -306,11 +694,28 @@ def resolve_member(archive: tarfile.TarFile, member: tarfile.TarInfo) -> Optiona
+@@ -306,11 +703,28 @@ def resolve_member(archive: tarfile.TarFile, member: tarfile.TarInfo) -> Optiona
  
  
  for index, dep in enumerate(deps, start=1):
@@ -5242,7 +5367,7 @@ index 1a6325d057c9156448b6f539f125a065d70f0bcb..686999c1ed3020ca8c452688400de05f
  
      target_dir = license_root / dep["key"]
      target_dir.mkdir(parents=True, exist_ok=True)
-@@ -352,68 +757,239 @@ for index, dep in enumerate(deps, start=1):
+@@ -352,68 +766,239 @@ for index, dep in enumerate(deps, start=1):
      report(f"[{index}/{len(deps)}] writing metadata for {dep['key']}")
      with open(target_dir / "SOURCE_INFO.txt", "w", encoding="utf-8") as out:
          out.write(f"Component: {dep['key']}\n")
@@ -5535,7 +5660,7 @@ index 1a6325d057c9156448b6f539f125a065d70f0bcb..686999c1ed3020ca8c452688400de05f
  
  EOF
  
-@@ -426,229 +1002,336 @@ if [ -d "$DIST_DIR/lib" ] || [ -f "$DIST_DIR/qemu-system-aarch64" ] || [ -d "$DI
+@@ -426,229 +1011,336 @@ if [ -d "$DIST_DIR/lib" ] || [ -f "$DIST_DIR/qemu-system-aarch64" ] || [ -d "$DI
          printf -- "\n### Firmware and data payload\n\n"
          artifact_lines "$DIST_DIR/share/qemu/*"
          printf -- "\n"
