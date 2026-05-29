@@ -146,8 +146,7 @@ jobs:
       - name: Checkout clean QEMU base
         uses: actions/checkout@v6
         with:
-          repository: scottjg/qemu-vfio-apple
-          ref: ac0cc20ad2fe0b8df2e5d9458e90a095ac711ab1
+          ref: base
           path: qemu-source
           persist-credentials: false
 
@@ -246,8 +245,7 @@ jobs:
       - name: Checkout clean QEMU base
         uses: actions/checkout@v6
         with:
-          repository: scottjg/qemu-vfio-apple
-          ref: ac0cc20ad2fe0b8df2e5d9458e90a095ac711ab1
+          ref: base
           path: qemu-source
           persist-credentials: false
 
@@ -516,8 +514,7 @@ jobs:
       - name: Checkout clean QEMU base
         uses: actions/checkout@v6
         with:
-          repository: scottjg/qemu-vfio-apple
-          ref: ac0cc20ad2fe0b8df2e5d9458e90a095ac711ab1
+          ref: base
           path: qemu-source
           persist-credentials: false
 
