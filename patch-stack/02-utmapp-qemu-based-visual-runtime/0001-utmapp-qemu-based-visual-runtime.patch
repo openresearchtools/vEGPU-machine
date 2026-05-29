@@ -1275,6 +1275,18 @@ index 87cc193cdee51cd4101f0f0eaa9ea1427492f410..1b23cd62275690c78c25f220ae33004b
  
  static void spice_server_gl_scanout(QXLInstance *qxl,
                                      const int *fd,
+@@ -970,7 +1203,10 @@ static void spice_server_gl_scanout(QXLInstance *qxl,
+                                     uint32_t num_planes, uint32_t format,
+                                     uint64_t modifier, int y_0_top)
+ {
+-#ifdef HAVE_SPICE_QXL_GL_SCANOUT2
++#if defined(CONFIG_IOSURFACE)
++    /* IOSurface scanout passes a pipe fd carrying an IOSurfaceID, not a dmabuf plane. */
++#endif
++#if defined(HAVE_SPICE_QXL_GL_SCANOUT2) && !defined(CONFIG_IOSURFACE)
+     spice_qxl_gl_scanout2(qxl, fd, width, height, offset, stride,
+                           num_planes, format, modifier, y_0_top);
+ #else
 @@ -988,16 +1221,17 @@ static void spice_gl_switch(DisplayChangeListener *dcl,
                              struct DisplaySurface *new_surface)
  {
