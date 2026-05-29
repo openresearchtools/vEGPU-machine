@@ -6,9 +6,9 @@ It includes QEMU, Apple VFIO, and bundled guest-driver components distributed un
 
 ## Source Layers
 
-This repository is organized as a patch stack, not as a checked-in full QEMU source tree. The build workflow applies the patches to the recorded QEMU base and then packages the app.
+This repository is organized as a patch stack, not as a checked-in full QEMU source tree. The build workflow checks out the recorded `scottjg/qemu-vfio-apple` base commit, applies the patches, and then packages the app.
 
-1. Vanilla QEMU base: `ac0cc20ad2fe0b8df2e5d9458e90a095ac711ab1`
+1. `scottjg/qemu-vfio-apple` `master` base: `ac0cc20ad2fe0b8df2e5d9458e90a095ac711ab1`
 2. `scottjg/qemu-vfio-apple` `wip` layer: `41f61cecb5a371fb97dced5cd6970845e0c069cf`
 3. QEMU-side visual runtime layer adapted from `utmapp/qemu` and `utmapp/virglrenderer`
 4. OpenResearchTools vEGPU Machine integration layer
@@ -41,7 +41,7 @@ See `LICENSE` for the repository-level license notice.
 
 ## Releases
 
-Release artifacts are produced from the recorded QEMU base plus the patch stack in this repository.
+Release artifacts are produced from the recorded `scottjg/qemu-vfio-apple` base commit plus the patch stack in this repository.
 
 Each release is expected to include:
 
