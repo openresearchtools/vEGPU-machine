@@ -4064,7 +4064,7 @@ index 0000000000000000000000000000000000000000..b4a48b2706018a9fee8b7cc13178b473
 +    '#define GLES2_LIB "libGLESv2.so"\n'
 +)
 +new = (
-+    '#define OPENGL_LIB "/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL"\n'
++    '#define OPENGL_LIB "GLESv2.framework/Versions/Current/GLESv2"\n'
 +    '#define EGL_LIB "EGL.framework/Versions/Current/EGL"\n'
 +    '#define GLES1_LIB "GLESv2.framework/Versions/Current/GLESv2"\n'
 +    '#define GLES2_LIB "GLESv2.framework/Versions/Current/GLESv2"\n'
