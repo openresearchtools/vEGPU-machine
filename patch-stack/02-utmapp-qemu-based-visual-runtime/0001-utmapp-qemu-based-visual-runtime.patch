@@ -1321,7 +1321,7 @@ index 87cc193cdee51cd4101f0f0eaa9ea1427492f410..1b23cd62275690c78c25f220ae33004b
  
          surface_gl_create_texture(ssd->gls, ssd->ds);
          if (!egl_dmabuf_export_texture(ssd->ds->texture,
-@@ -1034,13 +1268,69 @@ static void spice_gl_switch(DisplayChangeListener *dcl,
+@@ -1034,13 +1268,71 @@ static void spice_gl_switch(DisplayChangeListener *dcl,
          qemu_spice_gl_monitor_config(ssd, 0, 0,
                                       surface_width(ssd->ds),
                                       surface_height(ssd->ds));
@@ -1366,7 +1366,9 @@ index 87cc193cdee51cd4101f0f0eaa9ea1427492f410..1b23cd62275690c78c25f220ae33004b
  static QEMUGLContext qemu_spice_gl_create_context(DisplayGLCtx *dgc,
                                                    QEMUGLParams *params)
  {
-+#ifdef CONFIG_EGL
++#if defined(CONFIG_ANGLE)
++    return qemu_egl_create_context(dgc, params, spice_gl_ctx);
++#elif defined(CONFIG_EGL)
      return qemu_egl_create_context(dgc, params, qemu_egl_rn_ctx);
 +#else
 +    return NULL;
