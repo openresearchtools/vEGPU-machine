@@ -4064,7 +4064,7 @@ index 0000000000000000000000000000000000000000..b4a48b2706018a9fee8b7cc13178b473
 +    '#define GLES2_LIB "libGLESv2.so"\n'
 +)
 +new = (
-+    '#define OPENGL_LIB "/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL"\n'
++    '#define OPENGL_LIB "GLESv2.framework/GLESv2"\n'
 +    '#define EGL_LIB "EGL.framework/EGL"\n'
 +    '#define GLES1_LIB "GLESv2.framework/GLESv2"\n'
 +    '#define GLES2_LIB "GLESv2.framework/GLESv2"\n'
@@ -5146,9 +5146,9 @@ index 1a6325d057c9156448b6f539f125a065d70f0bcb..5fdc3519a1ec276a033fa964937148d1
 +        "files": ["COPYING"],
 +        "recipe_note": (
 +            "Built from pinned upstream source by contrib/apple-vfio/scripts/"
-+            "build-display-deps.sh. The build applies a local macOS EGL "
++            "build-display-deps.sh. The build applies a local macOS EGL/GL "
 +            "dispatch patch so libepoxy can dlopen app-provided EGL.framework "
-+            "and GLESv2.framework at runtime; no ANGLE/WebKit source or "
++            "and GLESv2.framework for ANGLE/Metal at runtime; no ANGLE/WebKit source or "
 +            "frameworks are bundled in Machine."
 +        ),
 +    },
