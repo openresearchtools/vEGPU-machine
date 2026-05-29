@@ -13,7 +13,7 @@ This repository is organized as a patch stack, not as a checked-in full QEMU sou
 3. QEMU-side visual runtime layer adapted from `utmapp/qemu` and `utmapp/virglrenderer`
 4. OpenResearchTools vEGPU Machine integration layer
 
-The source-layer records are in `patch-stack/00-base/`, and the three patch layers are in `patch-stack/01-*`, `patch-stack/02-*`, and `patch-stack/03-*`. The UTM QEMU visual-runtime record pins the adapted UTM QEMU branch/revision and keeps it on the GPL QEMU side.
+The source-layer records are in `patch-stack/00-base/`, and the three patch layers are in `patch-stack/01-*`, `patch-stack/02-*`, and `patch-stack/03-*`.
 
 ## Acknowledgements
 

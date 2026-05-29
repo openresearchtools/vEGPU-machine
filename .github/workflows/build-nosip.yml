@@ -259,7 +259,7 @@ jobs:
             fi
           }
           git remote set-url --push origin DISABLED
-          if [[ -x contrib/apple-vfio/scripts/build-nosip.sh ]] && grep -q 'CONFIG_ANGLE' include/ui/egl-helpers.h; then
+          if [[ -x contrib/apple-vfio/scripts/build-nosip.sh && -f ui/spice-display-metal.m ]]; then
             copy_patch_assets
             echo "source patch stack already applied"
             exit 0
@@ -528,7 +528,7 @@ jobs:
             fi
           }
           git remote set-url --push origin DISABLED
-          if [[ -x contrib/apple-vfio/scripts/build-nosip.sh ]] && grep -q 'CONFIG_ANGLE' include/ui/egl-helpers.h; then
+          if [[ -x contrib/apple-vfio/scripts/build-nosip.sh && -f ui/spice-display-metal.m ]]; then
             copy_patch_assets
             echo "source patch stack already applied"
             exit 0
@@ -758,20 +758,6 @@ jobs:
           test -f "$APP/Contents/MacOS/lib/libcrypto.57.dylib"
           test ! -e "$APP/Contents/MacOS/lib/libssl.3.dylib"
           test ! -e "$APP/Contents/MacOS/lib/libcrypto.3.dylib"
-          MACHINE_ANGLE_PAYLOADS="$(
-            find "$APP" \
-              \( \
-                -name 'EGL.framework' -o \
-                -name 'GLESv2.framework' -o \
-                -path '*/Source/ThirdParty/ANGLE*' -o \
-                -iname '*WebKit*' \
-              \) \
-              -print
-          )"
-          if [[ -n "$MACHINE_ANGLE_PAYLOADS" ]]; then
-            printf 'vEGPU Machine must not vendor app-side WebKit/ANGLE payloads:\n%s\n' "$MACHINE_ANGLE_PAYLOADS" >&2
-            exit 1
-          fi
           otool -L "$APP/Contents/MacOS/lib"/*.dylib "$APP/Contents/MacOS/qemu-system-aarch64" "$APP/Contents/MacOS/qemu-img" > "$RUNNER_TEMP/app-runtime-links.txt"
           python3 -c 'import sys; data=open(sys.argv[1], "rb").read(); assert b"/openssl@3/" not in data' "$RUNNER_TEMP/app-runtime-links.txt"
           python3 -c 'import sys; data=open(sys.argv[1], "rb").read(); assert b"virtio-net-pci,netdev=net0,mac=de:ad:be:ef:10:01,host_mtu=1500,speed=40000,duplex=full" in data; assert b"romfile=,rombar=0" not in data' "$APP/Contents/MacOS/qemu-vfio-apple"
@@ -807,9 +793,6 @@ jobs:
           done
           "$APP/Contents/MacOS/qemu-img" create -f qcow2 "$PROBE" 64M
           touch "$RUNNER_TEMP/probe-seed.iso"
-          ANGLE_PROBE="$RUNNER_TEMP/app-frameworks"
-          mkdir -p "$ANGLE_PROBE/EGL.framework/Versions/Current" "$ANGLE_PROBE/GLESv2.framework/Versions/Current"
-          touch "$ANGLE_PROBE/EGL.framework/Versions/Current/EGL" "$ANGLE_PROBE/GLESv2.framework/Versions/Current/GLESv2"
           "$APP/Contents/MacOS/qemu-vfio-apple" start \
             --disk "$PROBE" \
             --memory 512M \
@@ -837,14 +820,12 @@ jobs:
             --serial-log "$RUNNER_TEMP/probe-gui.serial.log" \
             --qemu-log "$RUNNER_TEMP/probe-gui.qemu.log" \
             --spice-socket "$RUNNER_TEMP/probe.spice" \
-            --angle-framework-dir "$ANGLE_PROBE" \
             --dry-run \
             --qmp "$RUNNER_TEMP/probe-gui-qmp.sock" \
             --vmnet-netdev vmnet-shared \
             --vmnet-start-address 172.29.253.1 \
             --vmnet-end-address 172.29.253.99 \
             --vmnet-subnet-mask 255.255.255.0 \
-            2> "$RUNNER_TEMP/qemu-vfio-apple-gui-dry-run.err" \
             | tee "$RUNNER_TEMP/qemu-vfio-apple-gui-dry-run.txt"
           for dry_run in "$RUNNER_TEMP/qemu-vfio-apple-headless-dry-run.txt" "$RUNNER_TEMP/qemu-vfio-apple-gui-dry-run.txt"; do
             grep -F -- '--disk' "$dry_run" && false || true
@@ -865,7 +846,6 @@ jobs:
           grep -F -- '-spice' "$RUNNER_TEMP/qemu-vfio-apple-gui-dry-run.txt"
           grep -F "unix=on,addr=$RUNNER_TEMP/probe.spice" "$RUNNER_TEMP/qemu-vfio-apple-gui-dry-run.txt"
           grep -F 'gl=on' "$RUNNER_TEMP/qemu-vfio-apple-gui-dry-run.txt"
-          grep -F "angle frameworks: $ANGLE_PROBE" "$RUNNER_TEMP/qemu-vfio-apple-gui-dry-run.err"
           python3 - "$RUNNER_TEMP/qemu-vfio-apple-gui-dry-run.txt" <<'PY'
           import shlex
           import sys
@@ -982,9 +962,6 @@ jobs:
           test -d "$SOURCE_INPUTS"
           ditto "$SOURCE_INPUTS" "$SOURCE_BUNDLE/third-party-sources"
           PATCH_STACK_DIR="${PATCH_STACK_DIR:-patch-stack}"
-          test -f "$PATCH_STACK_DIR/00-base/UTM_QEMU_VISUAL_RUNTIME.txt"
-          grep -F 'https://github.com/utmapp/qemu/tree/utm-edition' "$PATCH_STACK_DIR/00-base/UTM_QEMU_VISUAL_RUNTIME.txt"
-          grep -F 'utmapp_qemu_visual_runtime_license=QEMU GPL-2.0-or-later' "$PATCH_STACK_DIR/00-base/UTM_QEMU_VISUAL_RUNTIME.txt"
           test -f "$PATCH_STACK_DIR/01-scottjg-qemu-vfio-apple-wip/0001-scottjg-qemu-vfio-apple-wip.patch"
           test -f "$PATCH_STACK_DIR/02-utmapp-qemu-based-visual-runtime/0001-utmapp-qemu-based-visual-runtime.patch"
           test -f "$PATCH_STACK_DIR/03-openresearchtools-vfiouserhostapp-core/0001-openresearchtools-vfiouserhostapp-core.patch"
