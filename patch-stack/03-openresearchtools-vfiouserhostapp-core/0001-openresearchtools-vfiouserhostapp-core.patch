@@ -2948,7 +2948,7 @@ index 2aa9cbe8c4f1868cd316b26d0d560ff67637873e..47a25673c5d894d2d46c829991e1ea12
 +        let spiceSocket = opts.spiceSocketPath ?? spiceSocketURL(for: opts.vmName).path
 +        a += ["-spice",
 +              "unix=on,addr=\(spiceSocket),disable-ticketing=on,image-compression=off,playback-compression=off,streaming-video=off,gl=on"]
-+        a += ["-device", "virtio-gpu-gl-pci,max_outputs=8"]
++        a += ["-device", "virtio-gpu-gl-pci,max_outputs=16"]
 +        a += ["-device", "virtio-serial"]
 +        a += ["-device", "virtserialport,chardev=vdagent,name=com.redhat.spice.0"]
 +        a += ["-chardev", "spicevmc,id=vdagent,debug=0,name=vdagent"]
