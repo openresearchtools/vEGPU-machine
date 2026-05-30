@@ -780,7 +780,7 @@ jobs:
           otool -L "$APP/Contents/MacOS/lib"/*.dylib "$APP/Contents/MacOS/qemu-system-aarch64" "$APP/Contents/MacOS/qemu-img" > "$RUNNER_TEMP/app-runtime-links.txt"
           python3 -c 'import sys; data=open(sys.argv[1], "rb").read(); assert b"/openssl@3/" not in data' "$RUNNER_TEMP/app-runtime-links.txt"
           python3 -c 'import sys; data=open(sys.argv[1], "rb").read(); assert b"virtio-net-pci,netdev=net0,mac=de:ad:be:ef:10:01,host_mtu=1500,speed=40000,duplex=full" in data; assert b"romfile=,rombar=0" not in data' "$APP/Contents/MacOS/qemu-vfio-apple"
-          python3 -c 'import sys; data=open(sys.argv[1], "rb").read(); assert b"virtio-gpu-gl-pci" in data' "$APP/Contents/MacOS/qemu-vfio-apple"
+          python3 -c 'import sys; data=open(sys.argv[1], "rb").read(); assert b"virtio-gpu-gl-pci,max_outputs=8" in data' "$APP/Contents/MacOS/qemu-vfio-apple"
           grep -F 'Acknowledgements and Independence' "$APP/Contents/Resources/ThirdPartyNotices/NOTICES"
           grep -F 'https://github.com/scottjg/qemu-vfio-apple' "$APP/Contents/Resources/ThirdPartyNotices/NOTICES"
           grep -F 'https://github.com/utmapp/qemu' "$APP/Contents/Resources/ThirdPartyNotices/NOTICES"
@@ -882,7 +882,7 @@ jobs:
               for index, arg in enumerate(args)
               if index > 0 and args[index - 1] == "-device" and arg.startswith("virtio-gpu-gl-pci")
           ]
-          assert gpu_args == ["virtio-gpu-gl-pci"]
+          assert gpu_args == ["virtio-gpu-gl-pci,max_outputs=8"]
           PY
           grep -F 'spicevmc,id=vdagent' "$RUNNER_TEMP/qemu-vfio-apple-gui-dry-run.txt"
           codesign --verify --deep --strict --verbose=2 "$APP"
