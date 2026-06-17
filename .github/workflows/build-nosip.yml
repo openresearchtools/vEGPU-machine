@@ -140,6 +140,8 @@ jobs:
             lzo
             opus
             orc
+            gstreamer
+            gst-plugins-base
             pixman
             snappy
             libusb
@@ -169,7 +171,8 @@ jobs:
 
           formulae = """
           libunistring gettext pcre2 glib gmp nettle libtasn1 libidn2 p11-kit gnutls
-          bzip2 xz lz4 zstd jpeg-turbo libpng lzo opus orc pixman snappy libusb libslirp
+          bzip2 xz lz4 zstd jpeg-turbo libpng lzo opus orc gstreamer gst-plugins-base
+          pixman snappy libusb libslirp
           """.split()
           limit = (13, 5)
 
@@ -253,7 +256,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cache/pegpu/qemu-display-deps
-          key: macos26-arm64-macos13.5-display-deps-opengl-virgl-v1-${{ hashFiles('patch-control/patch-stack/**') }}
+          key: macos26-arm64-macos13.5-display-deps-opengl-virgl-gstreamer-v1-${{ hashFiles('patch-control/patch-stack/**') }}
 
       - name: Build display dependencies
         id: display-deps

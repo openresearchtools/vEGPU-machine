@@ -4634,7 +4634,7 @@ index 0000000000000000000000000000000000000000..eb420547adb7cb5374db6ebfcd1ba1e8
 +    -Dsasl=false \
 +    -Dsmartcard=disabled \
 +    -Dopus=enabled \
-+    -Dgstreamer=no
++    -Dgstreamer=1.0
 +ninja -C "$WORK/spice-server-build" install
 +
 +PKG_CONFIG_PATH="$DEPS_PKG_CONFIG_PATH" \
