@@ -4381,7 +4381,7 @@ new file mode 100755
 index 0000000000000000000000000000000000000000..eb420547adb7cb5374db6ebfcd1ba1e8232fd3c6
 --- /dev/null
 +++ b/contrib/apple-vfio/scripts/build-display-deps.sh
-@@ -0,0 +1,314 @@
+@@ -0,0 +1,391 @@
 +#!/bin/bash
 +#
 +# SPDX-License-Identifier: GPL-2.0-or-later
@@ -4408,6 +4408,9 @@ index 0000000000000000000000000000000000000000..eb420547adb7cb5374db6ebfcd1ba1e8
 +LIBEPOXY_VERSION="${LIBEPOXY_VERSION:-1.5.10}"
 +LIBEPOXY_URL="${LIBEPOXY_URL:-https://github.com/anholt/libepoxy/archive/refs/tags/${LIBEPOXY_VERSION}.tar.gz}"
 +LIBEPOXY_SHA256="${LIBEPOXY_SHA256:-a7ced37f4102b745ac86d6a70a9da399cc139ff168ba6b8002b4d8d43c900c15}"
++GSTREAMER_VERSION="${GSTREAMER_VERSION:-1.28.3}"
++GSTREAMER_URL="${GSTREAMER_URL:-https://gitlab.freedesktop.org/gstreamer/gstreamer/-/archive/${GSTREAMER_VERSION}/gstreamer-${GSTREAMER_VERSION}.tar.bz2}"
++GSTREAMER_SHA256="${GSTREAMER_SHA256:-a4787d6eea0beacfe63eb607b7ac84bebb3c34fff7c25080a28ffce8cb2169f1}"
 +SPICE_PROTOCOL_VERSION="${SPICE_PROTOCOL_VERSION:-0.14.5}"
 +SPICE_PROTOCOL_URL="${SPICE_PROTOCOL_URL:-https://www.spice-space.org/download/releases/spice-protocol-${SPICE_PROTOCOL_VERSION}.tar.xz}"
 +SPICE_PROTOCOL_SHA256="${SPICE_PROTOCOL_SHA256:-baf58449f6e89d19f475899ad5fb9196fdc46c03cc53233f4e39cf2978f9cff7}"
@@ -4565,6 +4568,7 @@ index 0000000000000000000000000000000000000000..eb420547adb7cb5374db6ebfcd1ba1e8
 +echo "[build-display-deps] prefix: $PREFIX"
 +echo "[build-display-deps] libepoxy: $LIBEPOXY_URL"
 +echo "[build-display-deps] libressl: $LIBRESSL_URL"
++echo "[build-display-deps] gstreamer: $GSTREAMER_URL"
 +echo "[build-display-deps] spice-protocol: $SPICE_PROTOCOL_URL"
 +echo "[build-display-deps] spice-server: $SPICE_SERVER_URL"
 +echo "[build-display-deps] virglrenderer: $VIRGL_REPO @ $VIRGL_COMMIT"
@@ -4604,6 +4608,79 @@ index 0000000000000000000000000000000000000000..eb420547adb7cb5374db6ebfcd1ba1e8
 +    make -j"$(jobs)"
 +    make install
 +)
++
++download_checked "$GSTREAMER_URL" "$WORK/gstreamer-${GSTREAMER_VERSION}.tar.bz2" "$GSTREAMER_SHA256"
++extract_clean "$WORK/gstreamer-${GSTREAMER_VERSION}.tar.bz2" "$WORK/gstreamer"
++rm -rf "$WORK/gstreamer-build"
++PATH="$PY_VENV/bin:$PATH" \
++PKG_CONFIG_PATH="$DEPS_PKG_CONFIG_PATH" \
++PYTHON="$PY_VENV/bin/python3" \
++meson setup "$WORK/gstreamer-build" "$WORK/gstreamer" \
++    --prefix "$PREFIX" \
++    --libdir lib \
++    --buildtype release \
++    -Dbase=enabled \
++    -Dgood=disabled \
++    -Dugly=disabled \
++    -Dbad=disabled \
++    -Dlibav=disabled \
++    -Ddevtools=disabled \
++    -Dges=disabled \
++    -Drtsp_server=disabled \
++    -Drs=disabled \
++    -Dgst-examples=disabled \
++    -Dpython=disabled \
++    -Dsharp=disabled \
++    -Dtls=disabled \
++    -Dlibnice=disabled \
++    -Dgtk=disabled \
++    -Dgst-full=disabled \
++    -Dgpl=disabled \
++    -Dtests=disabled \
++    -Dexamples=disabled \
++    -Dbenchmarks=disabled \
++    -Dtools=disabled \
++    -Dintrospection=disabled \
++    -Dnls=disabled \
++    -Ddoc=disabled \
++    -Dgtk_doc=disabled \
++    -Dorc=enabled \
++    -Dorc-source=system \
++    -Dbuild-tools-source=system \
++    -Dgstreamer:check=disabled \
++    -Dgstreamer:ptp-helper=disabled \
++    -Dgstreamer:ptp-helper-permissions=none \
++    -Dgstreamer:coretracers=disabled \
++    -Dgst-plugins-base:app=enabled \
++    -Dgst-plugins-base:gl=disabled \
++    -Dgst-plugins-base:iso-codes=disabled \
++    -Dgst-plugins-base:alsa=disabled \
++    -Dgst-plugins-base:cdparanoia=disabled \
++    -Dgst-plugins-base:libvisual=disabled \
++    -Dgst-plugins-base:ogg=disabled \
++    -Dgst-plugins-base:opus=disabled \
++    -Dgst-plugins-base:pango=disabled \
++    -Dgst-plugins-base:theora=disabled \
++    -Dgst-plugins-base:tremor=disabled \
++    -Dgst-plugins-base:vorbis=disabled \
++    -Dgst-plugins-base:x11=disabled \
++    -Dgst-plugins-base:xshm=disabled \
++    -Dgst-plugins-base:xvideo=disabled \
++    -Dgst-plugins-base:xi=disabled
++ninja -C "$WORK/gstreamer-build" install
++PKG_CONFIG_PATH="$DEPS_PKG_CONFIG_PATH" \
++pkg-config --modversion gstreamer-1.0 | grep -Fx "$GSTREAMER_VERSION"
++PKG_CONFIG_PATH="$DEPS_PKG_CONFIG_PATH" \
++pkg-config --modversion gstreamer-app-1.0 | grep -Fx "$GSTREAMER_VERSION"
++PKG_CONFIG_PATH="$DEPS_PKG_CONFIG_PATH" \
++pkg-config --modversion gstreamer-video-1.0 | grep -Fx "$GSTREAMER_VERSION"
++PKG_CONFIG_PATH="$DEPS_PKG_CONFIG_PATH" \
++pkg-config --modversion gstreamer-allocators-1.0 | grep -Fx "$GSTREAMER_VERSION"
++test -f "$PREFIX/lib/libgstreamer-1.0.0.dylib"
++test -f "$PREFIX/lib/libgstbase-1.0.0.dylib"
++test -f "$PREFIX/lib/libgstapp-1.0.0.dylib"
++test -f "$PREFIX/lib/libgstvideo-1.0.0.dylib"
++test -f "$PREFIX/lib/libgstallocators-1.0.0.dylib"
 +
 +download_checked "$SPICE_PROTOCOL_URL" "$WORK/spice-protocol-${SPICE_PROTOCOL_VERSION}.tar.xz" "$SPICE_PROTOCOL_SHA256"
 +extract_clean "$WORK/spice-protocol-${SPICE_PROTOCOL_VERSION}.tar.xz" "$WORK/spice-protocol"
@@ -5638,18 +5715,25 @@ index 1a6325d057c9156448b6f539f125a065d70f0bcb..4e463222862289e2231ba7a3144d9c14
      {
          "key": "libslirp",
          "formula": "libslirp",
-@@ -118,6 +407,15 @@ deps = [
+@@ -118,6 +407,22 @@ deps = [
              "LICENSES/LGPL-2.1-or-later.txt",
          ],
      },
 +    {
 +        "key": "gstreamer",
-+        "formula": "gstreamer",
++        "source_url": "https://gitlab.freedesktop.org/gstreamer/gstreamer/-/archive/1.28.3/gstreamer-1.28.3.tar.bz2",
++        "homepage": "https://gstreamer.freedesktop.org/",
++        "license": "LGPL-2.0-or-later, LGPL-2.1-or-later, and MIT notices as provided upstream",
 +        "files": [
 +            "LICENSE",
 +            "subprojects/gstreamer/COPYING",
 +            "subprojects/gst-plugins-base/COPYING",
 +        ],
++        "recipe_note": (
++            "Built from pinned upstream source by contrib/apple-vfio/scripts/"
++            "build-display-deps.sh with only the GStreamer core and "
++            "gst-plugins-base subproject enabled for SPICE video support."
++        ),
 +    },
      {
          "key": "gmp",

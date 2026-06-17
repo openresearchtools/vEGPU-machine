@@ -108,6 +108,7 @@ jobs:
         run: |
           brew update
           brew install \
+            bison \
             ccache \
             coreutils \
             dpkg \
@@ -118,7 +119,7 @@ jobs:
             ninja \
             pkg-config
 
-          export PATH="/opt/homebrew/opt/gnu-sed/libexec/gnubin:/opt/homebrew/opt/gnu-tar/libexec/gnubin:/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"
+          export PATH="/opt/homebrew/opt/bison/bin:/opt/homebrew/opt/gnu-sed/libexec/gnubin:/opt/homebrew/opt/gnu-tar/libexec/gnubin:/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"
 
           source_formulae=(
             libunistring
@@ -140,8 +141,6 @@ jobs:
             lzo
             opus
             orc
-            gstreamer
-            gst-plugins-base
             pixman
             snappy
             libusb
@@ -156,6 +155,7 @@ jobs:
           done
 
           {
+            echo "/opt/homebrew/opt/bison/bin"
             echo "/opt/homebrew/opt/gnu-sed/libexec/gnubin"
             echo "/opt/homebrew/opt/gnu-tar/libexec/gnubin"
             echo "/opt/homebrew/opt/coreutils/libexec/gnubin"
@@ -171,8 +171,7 @@ jobs:
 
           formulae = """
           libunistring gettext pcre2 glib gmp nettle libtasn1 libidn2 p11-kit gnutls
-          bzip2 xz lz4 zstd jpeg-turbo libpng lzo opus orc gstreamer gst-plugins-base
-          pixman snappy libusb libslirp
+          bzip2 xz lz4 zstd jpeg-turbo libpng lzo opus orc pixman snappy libusb libslirp
           """.split()
           limit = (13, 5)
 
@@ -311,11 +310,21 @@ jobs:
           if PKG_CONFIG_PATH="$DEPS_PC" pkg-config --modversion epoxy | grep -Fx '1.5.10' && \
              PKG_CONFIG_PATH="$DEPS_PC" pkg-config --variable=epoxy_has_egl epoxy | grep -Fx '1' && \
              PKG_CONFIG_PATH="$DEPS_PC" pkg-config --modversion openssl | grep -Fx '4.3.2' && \
+             PKG_CONFIG_PATH="$DEPS_PC" pkg-config --modversion gstreamer-1.0 | grep -Fx '1.28.3' && \
+             PKG_CONFIG_PATH="$DEPS_PC" pkg-config --modversion gstreamer-app-1.0 | grep -Fx '1.28.3' && \
+             PKG_CONFIG_PATH="$DEPS_PC" pkg-config --modversion gstreamer-video-1.0 | grep -Fx '1.28.3' && \
+             PKG_CONFIG_PATH="$DEPS_PC" pkg-config --modversion gstreamer-allocators-1.0 | grep -Fx '1.28.3' && \
+             PKG_CONFIG_PATH="$DEPS_PC" pkg-config --variable=prefix gstreamer-1.0 | grep -Fx "$DISPLAY_DEPS" && \
              PKG_CONFIG_PATH="$DEPS_PC" pkg-config --modversion spice-protocol | grep -Fx '0.14.5' && \
              PKG_CONFIG_PATH="$DEPS_PC" pkg-config --modversion spice-server | grep -Fx '0.16.0' && \
              test -f "$DISPLAY_DEPS/include/epoxy/egl.h" && \
              test -f "$DISPLAY_DEPS/include/EGL/eglplatform.h" && \
              test -f "$DISPLAY_DEPS/lib/libepoxy.0.dylib" && \
+             test -f "$DISPLAY_DEPS/lib/libgstreamer-1.0.0.dylib" && \
+             test -f "$DISPLAY_DEPS/lib/libgstbase-1.0.0.dylib" && \
+             test -f "$DISPLAY_DEPS/lib/libgstapp-1.0.0.dylib" && \
+             test -f "$DISPLAY_DEPS/lib/libgstvideo-1.0.0.dylib" && \
+             test -f "$DISPLAY_DEPS/lib/libgstallocators-1.0.0.dylib" && \
              test -f "$DISPLAY_DEPS/lib/libspice-server.1.dylib" && \
              test -f "$DISPLAY_DEPS/lib/libssl.60.dylib" && \
              test -f "$DISPLAY_DEPS/lib/libcrypto.57.dylib" && \
