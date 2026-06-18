@@ -57,6 +57,16 @@ jobs:
               cp -R "$asset_dir"/. .
             fi
           }
+          apply_stack_patch() {
+            local patch_file="$1"
+            if git apply --check --exclude='.github/workflows/build-nosip.yml' "$patch_file"; then
+              git apply --exclude='.github/workflows/build-nosip.yml' "$patch_file"
+            elif git apply --reverse --check --exclude='.github/workflows/build-nosip.yml' "$patch_file"; then
+              echo "source patch already present: $patch_file"
+            else
+              git apply --check --verbose --exclude='.github/workflows/build-nosip.yml' "$patch_file"
+            fi
+          }
           git remote set-url --push origin DISABLED
           if [[ -x contrib/apple-vfio/scripts/build-nosip.sh ]] && grep -q 'CONFIG_ANGLE' include/ui/egl-helpers.h; then
             copy_patch_assets
@@ -66,15 +76,9 @@ jobs:
           test -f "$PATCH_STACK_DIR/01-scottjg-qemu-vfio-apple-wip/0001-scottjg-qemu-vfio-apple-wip.patch"
           test -f "$PATCH_STACK_DIR/02-utmapp-qemu-based-visual-runtime/0001-utmapp-qemu-based-visual-runtime.patch"
           test -f "$PATCH_STACK_DIR/03-openresearchtools-vfiouserhostapp-core/0001-openresearchtools-vfiouserhostapp-core.patch"
-          git apply \
-            --exclude='.github/workflows/build-nosip.yml' \
-            "$PATCH_STACK_DIR/01-scottjg-qemu-vfio-apple-wip/0001-scottjg-qemu-vfio-apple-wip.patch"
-          git apply \
-            --exclude='.github/workflows/build-nosip.yml' \
-            "$PATCH_STACK_DIR/02-utmapp-qemu-based-visual-runtime/0001-utmapp-qemu-based-visual-runtime.patch"
-          git apply \
-            --exclude='.github/workflows/build-nosip.yml' \
-            "$PATCH_STACK_DIR/03-openresearchtools-vfiouserhostapp-core/0001-openresearchtools-vfiouserhostapp-core.patch"
+          apply_stack_patch "$PATCH_STACK_DIR/01-scottjg-qemu-vfio-apple-wip/0001-scottjg-qemu-vfio-apple-wip.patch"
+          apply_stack_patch "$PATCH_STACK_DIR/02-utmapp-qemu-based-visual-runtime/0001-utmapp-qemu-based-visual-runtime.patch"
+          apply_stack_patch "$PATCH_STACK_DIR/03-openresearchtools-vfiouserhostapp-core/0001-openresearchtools-vfiouserhostapp-core.patch"
           copy_patch_assets
           rm -rf patch-stack
           cp -R "$PATCH_STACK_DIR" patch-stack
@@ -156,6 +160,7 @@ jobs:
             libunistring
             gettext
             pcre2
+            brotli
             glib
             gmp
             nettle
@@ -266,7 +271,7 @@ jobs:
 
           formulae = """
           libunistring gettext pcre2 glib gmp nettle libtasn1 libidn2 p11-kit gnutls
-          bzip2 xz lz4 zstd jpeg-turbo libpng lzo opus orc pixman snappy libusb libslirp
+          brotli bzip2 xz lz4 zstd jpeg-turbo libpng lzo opus orc pixman snappy libusb libslirp
           """.split()
           limit = (13, 5)
 
