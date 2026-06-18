@@ -627,10 +627,19 @@ jobs:
 
           def macho(path):
               try:
-                  desc = subprocess.check_output(["file", "-b", str(path)], text=True, stderr=subprocess.DEVNULL)
-              except subprocess.CalledProcessError:
+                  magic = path.read_bytes()[:4]
+              except OSError:
                   return False
-              return "Mach-O" in desc
+              return magic in {
+                  b"\xfe\xed\xfa\xce",
+                  b"\xce\xfa\xed\xfe",
+                  b"\xfe\xed\xfa\xcf",
+                  b"\xcf\xfa\xed\xfe",
+                  b"\xca\xfe\xba\xbe",
+                  b"\xbe\xba\xfe\xca",
+                  b"\xca\xfe\xba\xbf",
+                  b"\xbf\xba\xfe\xca",
+              }
 
           def versions(path):
               output = subprocess.check_output(["otool", "-l", str(path)], text=True, stderr=subprocess.DEVNULL)
