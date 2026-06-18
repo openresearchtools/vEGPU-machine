@@ -835,11 +835,21 @@ jobs:
           SRC_DEXT="$APP/Contents/Library/SystemExtensions/$DEXT_NAME"
           DST_DEXT="$PACKAGE/PEGPU Machine.app/Contents/Library/SystemExtensions/$DEXT_NAME"
           test -d "$SRC_DEXT"
+          SRC_DEXT_REAL="$(cd "$SRC_DEXT" && pwd -P)"
+          printf 'packaging DriverKit dext from %s\n' "$SRC_DEXT_REAL"
           rm -rf "$DST_DEXT"
           mkdir -p "$(dirname "$DST_DEXT")"
-          ditto "$SRC_DEXT" "$DST_DEXT"
-          test ! -L "$DST_DEXT"
-          test -f "$DST_DEXT/Contents/Info.plist"
+          ditto "$SRC_DEXT_REAL" "$DST_DEXT"
+          if [[ -L "$DST_DEXT" ]]; then
+            echo "packaged DriverKit dext must be a materialized bundle, not a symlink" >&2
+            ls -l "$DST_DEXT" >&2 || true
+            exit 1
+          fi
+          if [[ ! -f "$DST_DEXT/Contents/Info.plist" ]]; then
+            echo "packaged DriverKit dext is missing Contents/Info.plist" >&2
+            find "$DST_DEXT" -maxdepth 3 -print >&2 || true
+            exit 1
+          fi
           codesign --verify --strict --verbose=2 "$DST_DEXT"
           ditto -c -k "$PACKAGE" "$ZIP_PATH"
           zipinfo -1 "$ZIP_PATH" | grep -Fx 'PEGPU Machine.app/Contents/MacOS/PEGPU Machine'
