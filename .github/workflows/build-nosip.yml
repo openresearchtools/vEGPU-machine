@@ -831,11 +831,17 @@ jobs:
           rm -rf "$PACKAGE"
           mkdir -p "$PACKAGE"
           ditto "$APP" "$PACKAGE/PEGPU Machine.app"
+          test -d "$PACKAGE/PEGPU Machine.app/Contents/Library/SystemExtensions/com.pegpu.machine.VFIOUserPCIDriver.dext"
+          test -f "$PACKAGE/PEGPU Machine.app/Contents/Library/SystemExtensions/com.pegpu.machine.VFIOUserPCIDriver.dext/Contents/Info.plist"
           ditto -c -k "$PACKAGE" "$ZIP_PATH"
           zipinfo -1 "$ZIP_PATH" | grep -Fx 'PEGPU Machine.app/Contents/MacOS/PEGPU Machine'
           zipinfo -1 "$ZIP_PATH" | grep -Fx 'PEGPU Machine.app/Contents/MacOS/qemu-vfio-apple'
           zipinfo -1 "$ZIP_PATH" | grep -Fx 'PEGPU Machine.app/Contents/MacOS/qemu-system-aarch64'
-          zipinfo -1 "$ZIP_PATH" | grep -Fx 'PEGPU Machine.app/Contents/Library/SystemExtensions/com.pegpu.machine.VFIOUserPCIDriver.dext/Contents/Info.plist'
+          if ! zipinfo -1 "$ZIP_PATH" | grep -E '^PEGPU Machine\.app/Contents/Library/SystemExtensions/com\.pegpu\.machine\.VFIOUserPCIDriver\.dext(/|$)' >/dev/null; then
+            echo "app artifact zip is missing the DriverKit dext" >&2
+            zipinfo -1 "$ZIP_PATH" | grep -F 'SystemExtensions' >&2 || true
+            exit 1
+          fi
           zipinfo -1 "$ZIP_PATH" | grep -Fx 'PEGPU Machine.app/Contents/Resources/guest-tools/manifest.json'
           zipinfo -1 "$ZIP_PATH" | grep -Fx 'PEGPU Machine.app/Contents/Resources/manifest.json'
           if zipinfo -1 "$ZIP_PATH" | grep -E '^THIRD_PARTY_NOTICES/'; then
