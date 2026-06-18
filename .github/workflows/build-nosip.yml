@@ -127,6 +127,30 @@ jobs:
           export CXXFLAGS="${CXXFLAGS:+$CXXFLAGS }$deployment_flags"
           export OBJCFLAGS="${OBJCFLAGS:+$OBJCFLAGS }$deployment_flags"
           export LDFLAGS="${LDFLAGS:+$LDFLAGS }$deployment_flags"
+          STD_TAP="pegpu/macos135"
+          brew tap-new --no-git "$STD_TAP"
+          STD_FORMULA_DIR="$(brew --repository "$STD_TAP")/Formula"
+          std_formula_file() {
+            local formula="$1"
+            local file="$STD_FORMULA_DIR/${formula}.rb"
+            brew cat "$formula" > "$file"
+            python3 - "$file" <<'PY'
+          import pathlib
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          lines = path.read_text(encoding="utf-8").splitlines()
+          if not any(line.strip() == "env :std" for line in lines):
+              for index, line in enumerate(lines):
+                  if line.startswith("class ") and line.rstrip().endswith(" < Formula"):
+                      lines.insert(index + 1, "  env :std")
+                      break
+              else:
+                  raise SystemExit(f"could not find formula class in {path}")
+              path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+            printf '%s\n' "$file"
+          }
 
           source_formulae=(
             libunistring
@@ -158,7 +182,9 @@ jobs:
             if brew list --formula "$formula" >/dev/null 2>&1; then
               brew uninstall --ignore-dependencies "$formula"
             fi
-            brew install --build-from-source --env=std "$formula"
+            formula_file="$(std_formula_file "$formula")"
+            test -f "$formula_file"
+            brew install --build-from-source "$STD_TAP/$formula"
           done
 
           {
