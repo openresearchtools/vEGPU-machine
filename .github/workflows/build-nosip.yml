@@ -831,8 +831,16 @@ jobs:
           rm -rf "$PACKAGE"
           mkdir -p "$PACKAGE"
           ditto "$APP" "$PACKAGE/PEGPU Machine.app"
-          test -d "$PACKAGE/PEGPU Machine.app/Contents/Library/SystemExtensions/com.pegpu.machine.VFIOUserPCIDriver.dext"
-          test -f "$PACKAGE/PEGPU Machine.app/Contents/Library/SystemExtensions/com.pegpu.machine.VFIOUserPCIDriver.dext/Contents/Info.plist"
+          DEXT_NAME="com.pegpu.machine.VFIOUserPCIDriver.dext"
+          SRC_DEXT="$APP/Contents/Library/SystemExtensions/$DEXT_NAME"
+          DST_DEXT="$PACKAGE/PEGPU Machine.app/Contents/Library/SystemExtensions/$DEXT_NAME"
+          test -d "$SRC_DEXT"
+          rm -rf "$DST_DEXT"
+          mkdir -p "$(dirname "$DST_DEXT")"
+          ditto "$SRC_DEXT" "$DST_DEXT"
+          test ! -L "$DST_DEXT"
+          test -f "$DST_DEXT/Contents/Info.plist"
+          codesign --verify --strict --verbose=2 "$DST_DEXT"
           ditto -c -k "$PACKAGE" "$ZIP_PATH"
           zipinfo -1 "$ZIP_PATH" | grep -Fx 'PEGPU Machine.app/Contents/MacOS/PEGPU Machine'
           zipinfo -1 "$ZIP_PATH" | grep -Fx 'PEGPU Machine.app/Contents/MacOS/qemu-vfio-apple'
